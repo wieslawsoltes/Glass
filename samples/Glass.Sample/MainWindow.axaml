@@ -1,0 +1,285 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:glass="clr-namespace:Glass.Avalonia;assembly=Glass.Avalonia"
+        mc:Ignorable="d"
+        x:Class="Glass.Sample.MainWindow"
+        Width="1420"
+        Height="920"
+        MinWidth="1180"
+        MinHeight="760"
+        Background="Transparent"
+        TransparencyBackgroundFallback="#0C1015"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="PreferSystemChrome"
+        ExtendClientAreaTitleBarHeightHint="72"
+        FontFamily="avares://Avalonia.Fonts.Inter#Inter"
+        Title="Glass"
+        WindowStartupLocation="CenterScreen"
+        glass:WindowGlass.IsEnabled="True"
+        glass:WindowGlass.Material="LiquidGlass"
+        glass:WindowGlass.TintColor="#4CFFFFFF"
+        glass:WindowGlass.CornerRadius="30"
+        d:DesignWidth="1420"
+        d:DesignHeight="920">
+    <Window.Resources>
+        <SolidColorBrush x:Key="ShellStroke" Color="#52FFFFFF" />
+        <SolidColorBrush x:Key="ShellFill" Color="#1AFFFFFF" />
+        <SolidColorBrush x:Key="ShellFillStrong" Color="#26FFFFFF" />
+        <SolidColorBrush x:Key="ShellTextSoft" Color="#A8E7EDF8" />
+        <SolidColorBrush x:Key="ShellTextFaint" Color="#7DD7E0EE" />
+        <SolidColorBrush x:Key="AccentBlue" Color="#98C4FF" />
+        <SolidColorBrush x:Key="AccentMint" Color="#8AF2DE" />
+        <SolidColorBrush x:Key="AccentRose" Color="#FFB7D9" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Border.surface">
+            <Setter Property="Background" Value="{StaticResource ShellFill}" />
+            <Setter Property="BorderBrush" Value="{StaticResource ShellStroke}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="28" />
+        </Style>
+
+        <Style Selector="Border.surface.strong">
+            <Setter Property="Background" Value="{StaticResource ShellFillStrong}" />
+        </Style>
+
+        <Style Selector="Button.preset">
+            <Setter Property="Background" Value="#14FFFFFF" />
+            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="999" />
+            <Setter Property="Padding" Value="18,11" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="Button.preset:pointerover">
+            <Setter Property="Background" Value="#24FFFFFF" />
+            <Setter Property="BorderBrush" Value="#5AFFFFFF" />
+        </Style>
+
+        <Style Selector="TextBlock.eyebrow">
+            <Setter Property="Foreground" Value="{StaticResource ShellTextFaint}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </Window.Styles>
+
+    <Grid Background="Transparent">
+        <Canvas IsHitTestVisible="False">
+            <Ellipse Width="540" Height="540" Canvas.Left="-90" Canvas.Top="-120">
+                <Ellipse.Fill>
+                    <RadialGradientBrush RadiusX="90%" RadiusY="90%">
+                        <GradientStop Color="#75A9D4FF" Offset="0" />
+                        <GradientStop Color="#00A9D4FF" Offset="1" />
+                    </RadialGradientBrush>
+                </Ellipse.Fill>
+            </Ellipse>
+
+            <Ellipse Width="620" Height="620" Canvas.Left="900" Canvas.Top="60">
+                <Ellipse.Fill>
+                    <RadialGradientBrush RadiusX="90%" RadiusY="90%">
+                        <GradientStop Color="#66A8FFE5" Offset="0" />
+                        <GradientStop Color="#00A8FFE5" Offset="1" />
+                    </RadialGradientBrush>
+                </Ellipse.Fill>
+            </Ellipse>
+
+            <Ellipse Width="680" Height="680" Canvas.Left="420" Canvas.Top="620">
+                <Ellipse.Fill>
+                    <RadialGradientBrush RadiusX="88%" RadiusY="88%">
+                        <GradientStop Color="#4DD09DFF" Offset="0" />
+                        <GradientStop Color="#00D09DFF" Offset="1" />
+                    </RadialGradientBrush>
+                </Ellipse.Fill>
+            </Ellipse>
+        </Canvas>
+
+        <Grid RowDefinitions="Auto,*" Margin="28">
+            <Border Classes="surface strong"
+                    Padding="22,18"
+                    Margin="0,0,0,22">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <StackPanel Spacing="4">
+                        <TextBlock Classes="eyebrow" Text="Glass Runtime" />
+                        <TextBlock Text="Liquid window materials for Avalonia" FontSize="24" FontWeight="SemiBold" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2"
+                                Orientation="Horizontal"
+                                Spacing="10"
+                                VerticalAlignment="Center">
+                        <Border Background="#18FFFFFF" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="999" Padding="14,8">
+                            <TextBlock x:Name="CurrentPlatformText" Foreground="{StaticResource ShellTextSoft}" FontWeight="SemiBold" />
+                        </Border>
+                        <Border Background="#18FFFFFF" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="999" Padding="14,8">
+                            <TextBlock x:Name="CurrentBackendText" Foreground="White" FontWeight="SemiBold" />
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="1.35*,0.95*" ColumnSpacing="24">
+                <Border Classes="surface" Padding="30">
+                    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="24">
+                        <StackPanel Spacing="10">
+                            <TextBlock Classes="eyebrow" Text="Window Material" />
+                            <TextBlock Text="Native host glass with a designed Avalonia shell."
+                                       FontSize="60"
+                                       FontWeight="SemiBold"
+                                       LineHeight="68"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="CurrentMaterialDescription"
+                                       Text="AppKit vibrancy on macOS today, liquid glass when the host exposes it, and DWM backdrops on Windows 11."
+                                       Foreground="{StaticResource ShellTextSoft}"
+                                       FontSize="19"
+                                       LineHeight="30"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="760" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12">
+                            <Button Classes="preset" Tag="LiquidGlass" Click="OnPresetClick">Liquid Glass</Button>
+                            <Button Classes="preset" Tag="MicaAlt" Click="OnPresetClick">Mica Alt</Button>
+                            <Button Classes="preset" Tag="Acrylic" Click="OnPresetClick">Acrylic</Button>
+                            <Button Classes="preset" Tag="Mica" Click="OnPresetClick">Mica</Button>
+                        </StackPanel>
+
+                        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="16">
+                            <Border Classes="surface">
+                                <StackPanel Margin="22" Spacing="10">
+                                    <TextBlock Classes="eyebrow" Text="Tint" />
+                                    <TextBlock x:Name="CurrentMaterialText" Text="Liquid Glass" FontSize="26" FontWeight="SemiBold" />
+                                    <TextBlock Text="Subtle edge-lit tinting with transparent content and native depth."
+                                               Foreground="{StaticResource ShellTextSoft}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="1" Classes="surface">
+                                <StackPanel Margin="22" Spacing="10">
+                                    <TextBlock Classes="eyebrow" Text="Host API" />
+                                    <TextBlock Text="OS owned" FontSize="26" FontWeight="SemiBold" />
+                                    <TextBlock Text="The material comes from the window manager instead of a fake screenshot blur."
+                                               Foreground="{StaticResource ShellTextSoft}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Classes="surface">
+                                <StackPanel Margin="22" Spacing="10">
+                                    <TextBlock Classes="eyebrow" Text="Shell" />
+                                    <TextBlock Text=".NET 10 + Avalonia" FontSize="26" FontWeight="SemiBold" />
+                                    <TextBlock Text="Shared window API with platform light-up and a fallback-friendly XAML surface."
+                                               Foreground="{StaticResource ShellTextSoft}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Border Grid.Row="4"
+                                Classes="surface strong"
+                                Padding="24">
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="20">
+                                <StackPanel>
+                                    <TextBlock Classes="eyebrow" Text="Frame" />
+                                    <TextBlock Text="72px" FontSize="32" FontWeight="SemiBold" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Classes="eyebrow" Text="Radius" />
+                                    <TextBlock Text="30" FontSize="32" FontWeight="SemiBold" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Classes="eyebrow" Text="Mode" />
+                                    <TextBlock Text="Hybrid native" FontSize="32" FontWeight="SemiBold" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="3"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource ShellTextSoft}"
+                                           Text="Use the preset buttons to flip the native backend while the Avalonia shell stays coherent." />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" RowSpacing="18">
+                    <Border Classes="surface strong" Padding="24">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                            <Border Width="44" Height="44" CornerRadius="22" Background="#22FFFFFF" BorderBrush="#40FFFFFF" BorderThickness="1" />
+                            <StackPanel Grid.Column="1" Spacing="6">
+                                <TextBlock Classes="eyebrow" Text="Selected preset" />
+                                <TextBlock x:Name="CurrentPresetTitle" Text="Liquid Glass" FontSize="28" FontWeight="SemiBold" />
+                                <TextBlock Text="Optimized for long-lived desktop windows with translucent chrome and bright edge highlights."
+                                           Foreground="{StaticResource ShellTextSoft}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="18">
+                        <Border Classes="surface" Padding="22">
+                            <StackPanel Spacing="14">
+                                <TextBlock Classes="eyebrow" Text="Ambient" />
+                                <TextBlock Text="Adaptive tint" FontSize="24" FontWeight="SemiBold" />
+                                <Rectangle Height="100" RadiusX="18" RadiusY="18">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#5FB4D8FF" Offset="0" />
+                                            <GradientStop Color="#2AD2FFF0" Offset="0.45" />
+                                            <GradientStop Color="#16FFFFFF" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                </Rectangle>
+                                <TextBlock Foreground="{StaticResource ShellTextSoft}" Text="The shell adds a restrained highlight layer so the native glass reads clearly on any wallpaper." TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1" Classes="surface" Padding="22">
+                            <StackPanel Spacing="14">
+                                <TextBlock Classes="eyebrow" Text="Density" />
+                                <TextBlock Text="Wide margin rhythm" FontSize="24" FontWeight="SemiBold" />
+                                <StackPanel Spacing="10">
+                                    <Border Height="16" CornerRadius="8" Background="#2CFFFFFF" />
+                                    <Border Height="16" CornerRadius="8" Background="#22FFFFFF" />
+                                    <Border Height="16" CornerRadius="8" Background="#18FFFFFF" />
+                                </StackPanel>
+                                <TextBlock Foreground="{StaticResource ShellTextSoft}" Text="The sample is intentionally sparse so the backdrop can stay legible instead of being buried under cards." TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Border Grid.Row="2" Classes="surface" Padding="24">
+                        <Grid RowDefinitions="Auto,Auto,*" RowSpacing="18">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel>
+                                    <TextBlock Classes="eyebrow" Text="Composition notes" />
+                                    <TextBlock Text="Platform-aware mapping" FontSize="30" FontWeight="SemiBold" />
+                                </StackPanel>
+                                <Border Background="#17FFFFFF" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="999" Padding="14,8" VerticalAlignment="Center">
+                                    <TextBlock Text=".NET 10" Foreground="White" FontWeight="SemiBold" />
+                                </Border>
+                            </Grid>
+
+                            <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                                <Border Width="12" Height="12" CornerRadius="6" Background="{StaticResource AccentBlue}" VerticalAlignment="Top" Margin="0,8,0,0" />
+                                <TextBlock Grid.Column="1" Foreground="{StaticResource ShellTextSoft}" TextWrapping="Wrap">
+                                    Windows maps presets to `DWMWA_SYSTEMBACKDROP_TYPE` and keeps dark mode plus rounded corners aligned with the theme.
+                                </TextBlock>
+                            </Grid>
+
+                            <Grid Grid.Row="2" ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                                <Border Width="12" Height="12" CornerRadius="6" Background="{StaticResource AccentMint}" VerticalAlignment="Top" Margin="0,8,0,0" />
+                                <TextBlock Grid.Column="1" Foreground="{StaticResource ShellTextSoft}" TextWrapping="Wrap">
+                                    macOS uses `NSVisualEffectView` today and automatically upgrades to `NSGlassEffectView` on hosts that expose the macOS 26 liquid-glass API.
+                                </TextBlock>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
