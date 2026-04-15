@@ -31,13 +31,13 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         }
 
         ConfigureWindow(nsWindow);
+        ConfigureHostedView(nsView);
 
         var wantsLiquid = settings.Material == GlassMaterial.LiquidGlass && ObjectiveC.ClassExists("NSGlassEffectView");
         if (wantsLiquid)
         {
-            if (_host is not { Kind: MacHostKind.LiquidWrapper })
+            if (_host is null)
             {
-                _host?.Dispose();
                 _host = CreateLiquidHost(nsWindow, nsView);
             }
 
@@ -49,16 +49,10 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
             return;
         }
 
-        if (_host is not { Kind: MacHostKind.VisualEffectWrapper })
-        {
-            _host?.Dispose();
-            _host = CreateVisualEffectHost(nsWindow, nsView);
-        }
+        _host?.Dispose();
+        _host = null;
 
-        if (_host is not null)
-        {
-            UpdateVisualEffectHost(_host.View, settings);
-        }
+        UpdateBackdropEffect(FindBackdropEffectView(nsWindow, nsView), settings);
     }
 
     public void Reset(Window window)
@@ -75,77 +69,101 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         ObjectiveC.SendVoidHandle(nsWindow, "setBackgroundColor:", ObjectiveC.GetClearColor());
     }
 
-    private static MacHost CreateVisualEffectHost(IntPtr nsWindow, IntPtr nsView)
+    private static void ConfigureHostedView(IntPtr nsView)
     {
-        var currentContentView = ObjectiveC.SendIntPtr(nsWindow, "contentView");
-        if (currentContentView == nsView)
-        {
-            var contentWrapper = ObjectiveC.CreateView("NSVisualEffectView", ObjectiveC.SendRect(nsView, "frame"));
-            ObjectiveC.SendVoid(contentWrapper, "setAutoresizingMask:", SizableMask);
-            ObjectiveC.SendVoid(nsView, "removeFromSuperview");
-            ObjectiveC.SendVoidRect(nsView, "setFrame:", ObjectiveC.SendRect(contentWrapper, "bounds"));
-            ObjectiveC.SendVoidHandle(contentWrapper, "addSubview:", nsView);
-            ObjectiveC.SendVoidHandle(nsWindow, "setContentView:", contentWrapper);
+        ObjectiveC.SendVoid(nsView, "setWantsLayer:", true);
 
-            return new MacHost(MacHostKind.VisualEffectWrapper, contentWrapper, nsView, IntPtr.Zero, nsWindow, true);
+        var layer = ObjectiveC.SendIntPtr(nsView, "layer");
+        if (layer == IntPtr.Zero)
+        {
+            return;
         }
 
-        var parentView = ObjectiveC.SendIntPtr(nsView, "superview");
-        if (parentView == IntPtr.Zero)
-        {
-            return new MacHost(MacHostKind.VisualEffectWrapper, IntPtr.Zero, nsView, parentView, nsWindow, false);
-        }
-
-        var visualEffectView = ObjectiveC.CreateView("NSVisualEffectView", ObjectiveC.SendRect(nsView, "frame"));
-        ObjectiveC.SendVoid(visualEffectView, "setAutoresizingMask:", SizableMask);
-        ObjectiveC.SendVoid(nsView, "removeFromSuperview");
-        ObjectiveC.SendVoidRect(nsView, "setFrame:", ObjectiveC.SendRect(visualEffectView, "bounds"));
-        ObjectiveC.SendVoidHandle(visualEffectView, "addSubview:", nsView);
-        ObjectiveC.SendVoidHandle(parentView, "addSubview:", visualEffectView);
-
-        return new MacHost(MacHostKind.VisualEffectWrapper, visualEffectView, nsView, parentView, nsWindow, false);
+        ObjectiveC.SendVoidHandle(layer, "setBackgroundColor:", ObjectiveC.GetClearCgColor());
+        ObjectiveC.SendVoid(layer, "setOpaque:", false);
     }
 
-    private static MacHost CreateLiquidHost(IntPtr nsWindow, IntPtr nsView)
+    private static IntPtr FindBackdropEffectView(IntPtr nsWindow, IntPtr nsView)
     {
-        var currentContentView = ObjectiveC.SendIntPtr(nsWindow, "contentView");
-        if (currentContentView == nsView)
-        {
-            var contentWrapper = ObjectiveC.CreateView("NSGlassEffectView", ObjectiveC.SendRect(nsView, "frame"));
-            ObjectiveC.SendVoid(contentWrapper, "setAutoresizingMask:", SizableMask);
-            ObjectiveC.SendVoid(nsView, "removeFromSuperview");
-            ObjectiveC.SendVoidHandle(contentWrapper, "setContentView:", nsView);
-            ObjectiveC.SendVoidHandle(nsWindow, "setContentView:", contentWrapper);
-
-            return new MacHost(MacHostKind.LiquidWrapper, contentWrapper, nsView, IntPtr.Zero, nsWindow, true);
-        }
-
-        var parentView = ObjectiveC.SendIntPtr(nsView, "superview");
-        if (parentView == IntPtr.Zero)
-        {
-            return new MacHost(MacHostKind.LiquidWrapper, IntPtr.Zero, nsView, parentView, nsWindow, false);
-        }
-
-        var glassView = ObjectiveC.CreateView("NSGlassEffectView", ObjectiveC.SendRect(nsView, "frame"));
-        ObjectiveC.SendVoid(glassView, "setAutoresizingMask:", SizableMask);
-        ObjectiveC.SendVoid(nsView, "removeFromSuperview");
-        ObjectiveC.SendVoidHandle(glassView, "setContentView:", nsView);
-        ObjectiveC.SendVoidHandle(parentView, "addSubview:", glassView);
-
-        return new MacHost(MacHostKind.LiquidWrapper, glassView, nsView, parentView, nsWindow, false);
+        var contentView = ObjectiveC.SendIntPtr(nsWindow, "contentView");
+        return FindBackdropEffectSubview(contentView, nsView);
     }
 
-    private static void UpdateVisualEffectHost(IntPtr visualEffectView, WindowGlassSettings settings)
+    private static IntPtr FindBackdropEffectSubview(IntPtr rootView, IntPtr hostedView)
+    {
+        if (rootView == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        var subviews = ObjectiveC.SendIntPtr(rootView, "subviews");
+        if (subviews == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        var count = ObjectiveC.SendNUInt(subviews, "count");
+        for (nuint index = 0; index < count; index++)
+        {
+            var child = ObjectiveC.SendIntPtr(subviews, "objectAtIndex:", index);
+            if (child == IntPtr.Zero || child == hostedView)
+            {
+                continue;
+            }
+
+            if (ObjectiveC.IsKindOfClass(child, "NSVisualEffectView") && ObjectiveC.SendNInt(child, "blendingMode") == 0)
+            {
+                return child;
+            }
+
+            var nested = FindBackdropEffectSubview(child, hostedView);
+            if (nested != IntPtr.Zero)
+            {
+                return nested;
+            }
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private static void UpdateBackdropEffect(IntPtr visualEffectView, WindowGlassSettings settings)
     {
         if (visualEffectView == IntPtr.Zero)
         {
             return;
         }
 
-        ObjectiveC.SendVoidInteger(visualEffectView, "setMaterial:", MapVisualMaterial(settings.Material));
-        ObjectiveC.SendVoidInteger(visualEffectView, "setBlendingMode:", 0);
-        ObjectiveC.SendVoidInteger(visualEffectView, "setState:", 0);
-        ObjectiveC.SendVoid(visualEffectView, "setEmphasized:", true);
+        ConfigureTransparentView(visualEffectView, settings.CornerRadius);
+        ObjectiveC.SendVoidInteger(visualEffectView, "setMaterial:", ResolveVisualMaterial(settings));
+        ObjectiveC.SendVoidInteger(visualEffectView, "setBlendingMode:", ResolveBlendingMode(settings));
+        ObjectiveC.SendVoidInteger(visualEffectView, "setState:", ResolveState(settings));
+        ObjectiveC.SendVoid(visualEffectView, "setEmphasized:", ResolveEmphasis(settings));
+    }
+
+    private static MacHost? CreateLiquidHost(IntPtr nsWindow, IntPtr nsView)
+    {
+        var currentContentView = ObjectiveC.SendIntPtr(nsWindow, "contentView");
+        if (currentContentView == IntPtr.Zero)
+        {
+            return null;
+        }
+
+        var container = ObjectiveC.CreateView("NSView", ObjectiveC.SendRect(currentContentView, "frame"));
+        var glassView = ObjectiveC.CreateView("NSGlassEffectView", ObjectiveC.SendRect(currentContentView, "bounds"));
+
+        ObjectiveC.SendVoid(container, "setAutoresizingMask:", SizableMask);
+        ObjectiveC.SendVoid(glassView, "setAutoresizingMask:", SizableMask);
+        ConfigureTransparentView(container, 0);
+        ConfigureTransparentView(glassView, 0);
+
+        ObjectiveC.SendVoid(nsView, "removeFromSuperview");
+        ObjectiveC.SendVoidRect(glassView, "setFrame:", ObjectiveC.SendRect(container, "bounds"));
+        ObjectiveC.SendVoidRect(nsView, "setFrame:", ObjectiveC.SendRect(container, "bounds"));
+        ObjectiveC.SendVoidHandle(container, "addSubview:", glassView);
+        ObjectiveC.SendVoidHandle(container, "addSubview:", nsView);
+        ObjectiveC.SendVoidHandle(nsWindow, "setContentView:", container);
+
+        return new MacHost(container, nsView, currentContentView, nsWindow, glassView);
     }
 
     private static void UpdateLiquidHost(IntPtr glassView, WindowGlassSettings settings)
@@ -155,45 +173,110 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
             return;
         }
 
-        ObjectiveC.SendVoidInteger(glassView, "setStyle:", 0);
+        ConfigureTransparentView(glassView, settings.CornerRadius);
+        ObjectiveC.SendVoidInteger(glassView, "setStyle:", ResolveGlassStyle(settings));
         ObjectiveC.SendVoid(glassView, "setCornerRadius:", settings.CornerRadius);
         ObjectiveC.SendVoidHandle(glassView, "setTintColor:", ObjectiveC.CreateColor(settings.TintColor));
     }
 
+    private static nint ResolveVisualMaterial(WindowGlassSettings settings) =>
+        settings.Mac.VisualMaterial switch
+        {
+            WindowGlassMacMaterialKind.AppearanceBased => 0,
+            WindowGlassMacMaterialKind.Light => 1,
+            WindowGlassMacMaterialKind.Dark => 2,
+            WindowGlassMacMaterialKind.Titlebar => 3,
+            WindowGlassMacMaterialKind.Selection => 4,
+            WindowGlassMacMaterialKind.Menu => 5,
+            WindowGlassMacMaterialKind.Popover => 6,
+            WindowGlassMacMaterialKind.Sidebar => 7,
+            WindowGlassMacMaterialKind.MediumLight => 8,
+            WindowGlassMacMaterialKind.UltraDark => 9,
+            WindowGlassMacMaterialKind.HeaderView => 10,
+            WindowGlassMacMaterialKind.Sheet => 11,
+            WindowGlassMacMaterialKind.WindowBackground => 12,
+            WindowGlassMacMaterialKind.HudWindow => 13,
+            WindowGlassMacMaterialKind.FullScreenUi => 15,
+            WindowGlassMacMaterialKind.ToolTip => 17,
+            WindowGlassMacMaterialKind.ContentBackground => 18,
+            WindowGlassMacMaterialKind.UnderWindowBackground => 21,
+            WindowGlassMacMaterialKind.UnderPageBackground => 22,
+            _ => MapVisualMaterial(settings.Material)
+        };
+
     private static nint MapVisualMaterial(GlassMaterial material) =>
         material switch
         {
-            GlassMaterial.Acrylic or GlassMaterial.Blur => 13,
-            GlassMaterial.MicaAlt => 12,
-            GlassMaterial.LiquidGlass => 13,
-            _ => 21
+            GlassMaterial.Acrylic or GlassMaterial.Blur => 5,
+            GlassMaterial.Mica => 10,
+            GlassMaterial.MicaAlt => 7,
+            GlassMaterial.LiquidGlass => 6,
+            _ => 6
         };
+
+    private static nint ResolveBlendingMode(WindowGlassSettings settings) =>
+        settings.Mac.BlendingKind switch
+        {
+            WindowGlassMacBlendingKind.WithinWindow => 1,
+            _ => 0
+        };
+
+    private static nint ResolveState(WindowGlassSettings settings) =>
+        settings.Mac.StateKind switch
+        {
+            WindowGlassMacStateKind.FollowsWindowActiveState => 0,
+            WindowGlassMacStateKind.Inactive => 2,
+            _ => 1
+        };
+
+    private static bool ResolveEmphasis(WindowGlassSettings settings) =>
+        settings.Mac.EmphasisKind == WindowGlassMacEmphasisKind.On;
+
+    private static nint ResolveGlassStyle(WindowGlassSettings settings) =>
+        settings.Mac.GlassStyle == WindowGlassMacGlassStyleKind.Clear ? 1 : 0;
+
+    private static void ConfigureTransparentView(IntPtr view, double cornerRadius)
+    {
+        if (view == IntPtr.Zero)
+        {
+            return;
+        }
+
+        ObjectiveC.SendVoid(view, "setWantsLayer:", true);
+        var layer = ObjectiveC.SendIntPtr(view, "layer");
+        if (layer == IntPtr.Zero)
+        {
+            return;
+        }
+
+        ObjectiveC.SendVoidHandle(layer, "setBackgroundColor:", ObjectiveC.GetClearCgColor());
+        ObjectiveC.SendVoid(layer, "setOpaque:", false);
+        ObjectiveC.SendVoid(layer, "setCornerRadius:", cornerRadius);
+        ObjectiveC.SendVoid(layer, "setMasksToBounds:", false);
+    }
 
     private sealed class MacHost : IDisposable
     {
         private bool _disposed;
 
-        public MacHost(MacHostKind kind, IntPtr view, IntPtr contentView, IntPtr parentView, IntPtr window, bool installedAsWindowContentView)
+        public MacHost(IntPtr containerView, IntPtr hostedView, IntPtr originalContentView, IntPtr window, IntPtr effectView)
         {
-            Kind = kind;
-            View = view;
-            ContentView = contentView;
-            ParentView = parentView;
+            ContainerView = containerView;
+            HostedView = hostedView;
+            OriginalContentView = originalContentView;
             Window = window;
-            InstalledAsWindowContentView = installedAsWindowContentView;
+            View = effectView;
         }
 
-        public MacHostKind Kind { get; }
+        public IntPtr ContainerView { get; }
 
-        public IntPtr View { get; }
+        public IntPtr HostedView { get; }
 
-        public IntPtr ContentView { get; }
-
-        public IntPtr ParentView { get; }
+        public IntPtr OriginalContentView { get; }
 
         public IntPtr Window { get; }
 
-        public bool InstalledAsWindowContentView { get; }
+        public IntPtr View { get; }
 
         public void Dispose()
         {
@@ -203,41 +286,29 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
             }
 
             _disposed = true;
-            if (View == IntPtr.Zero)
+            if (ContainerView == IntPtr.Zero || Window == IntPtr.Zero)
             {
                 return;
             }
 
-            if (InstalledAsWindowContentView && Window != IntPtr.Zero && ContentView != IntPtr.Zero)
+            if (HostedView != IntPtr.Zero)
             {
-                ObjectiveC.SendVoid(ContentView, "removeFromSuperview");
-                if (Kind == MacHostKind.LiquidWrapper)
-                {
-                    ObjectiveC.SendVoidHandle(View, "setContentView:", IntPtr.Zero);
-                }
-
-                ObjectiveC.SendVoidHandle(Window, "setContentView:", ContentView);
-            }
-            else if (ParentView != IntPtr.Zero && ContentView != IntPtr.Zero)
-            {
-                ObjectiveC.SendVoid(ContentView, "removeFromSuperview");
-                if (Kind == MacHostKind.LiquidWrapper)
-                {
-                    ObjectiveC.SendVoidHandle(View, "setContentView:", IntPtr.Zero);
-                }
-
-                ObjectiveC.SendVoidHandle(ParentView, "addSubview:", ContentView);
+                ObjectiveC.SendVoid(HostedView, "removeFromSuperview");
             }
 
-            ObjectiveC.SendVoid(View, "removeFromSuperview");
-            ObjectiveC.Release(View);
+            if (OriginalContentView != IntPtr.Zero)
+            {
+                ObjectiveC.SendVoidHandle(Window, "setContentView:", OriginalContentView);
+                if (HostedView != IntPtr.Zero)
+                {
+                    ObjectiveC.SendVoidRect(HostedView, "setFrame:", ObjectiveC.SendRect(OriginalContentView, "bounds"));
+                    ObjectiveC.SendVoidHandle(OriginalContentView, "addSubview:", HostedView);
+                }
+            }
+
+            ObjectiveC.SendVoid(ContainerView, "removeFromSuperview");
+            ObjectiveC.Release(ContainerView);
         }
-    }
-
-    private enum MacHostKind
-    {
-        VisualEffectWrapper,
-        LiquidWrapper
     }
 
     private static partial class ObjectiveC
@@ -273,6 +344,18 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
             return SendIntPtr(colorClass, "clearColor");
         }
 
+        public static IntPtr GetClearCgColor()
+        {
+            var clearColor = GetClearColor();
+            return SendIntPtr(clearColor, "CGColor");
+        }
+
+        public static bool IsKindOfClass(IntPtr receiver, string className)
+        {
+            var nativeClass = LookupClass(className);
+            return nativeClass != IntPtr.Zero && SendBool(receiver, "isKindOfClass:", nativeClass);
+        }
+
         public static IntPtr LookupClass(string className) => objc_lookUpClass(className);
 
         public static void Release(IntPtr handle)
@@ -291,8 +374,16 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
 
         public static IntPtr SendIntPtr(IntPtr receiver, string selector, NativeRect arg1) => IntPtr_objc_msgSend_Rect(receiver, GetSelector(selector), arg1);
 
+        public static IntPtr SendIntPtr(IntPtr receiver, string selector, nuint arg1) => IntPtr_objc_msgSend_NUInt(receiver, GetSelector(selector), arg1);
+
         public static IntPtr SendIntPtr(IntPtr receiver, string selector, double arg1, double arg2, double arg3, double arg4) =>
             IntPtr_objc_msgSend_Double4(receiver, GetSelector(selector), arg1, arg2, arg3, arg4);
+
+        public static bool SendBool(IntPtr receiver, string selector, IntPtr arg1) => Bool_objc_msgSend_IntPtr(receiver, GetSelector(selector), arg1);
+
+        public static nint SendNInt(IntPtr receiver, string selector) => NInt_objc_msgSend(receiver, GetSelector(selector));
+
+        public static nuint SendNUInt(IntPtr receiver, string selector) => NUInt_objc_msgSend(receiver, GetSelector(selector));
 
         public static void SendVoid(IntPtr receiver, string selector) => Void_objc_msgSend(receiver, GetSelector(selector));
 
@@ -307,9 +398,6 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         public static void SendVoidInteger(IntPtr receiver, string selector, nint arg1) => Void_objc_msgSend_NInt(receiver, GetSelector(selector), arg1);
 
         public static void SendVoid(IntPtr receiver, string selector, nuint arg1) => Void_objc_msgSend_NUInt(receiver, GetSelector(selector), arg1);
-
-        public static void SendVoid(IntPtr receiver, string selector, IntPtr arg1, nint arg2, IntPtr arg3) =>
-            Void_objc_msgSend_IntPtr_NInt_IntPtr(receiver, GetSelector(selector), arg1, arg2, arg3);
 
         private static IntPtr GetSelector(string selector)
         {
@@ -344,10 +432,23 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         private static partial IntPtr IntPtr_objc_msgSend_Rect(IntPtr receiver, IntPtr selector, NativeRect arg1);
 
         [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
+        private static partial IntPtr IntPtr_objc_msgSend_NUInt(IntPtr receiver, IntPtr selector, nuint arg1);
+
+        [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
         private static partial IntPtr IntPtr_objc_msgSend_Double4(IntPtr receiver, IntPtr selector, double arg1, double arg2, double arg3, double arg4);
 
         [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
         private static partial NativeRect NativeRect_objc_msgSend(IntPtr receiver, IntPtr selector);
+
+        [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
+        private static partial nint NInt_objc_msgSend(IntPtr receiver, IntPtr selector);
+
+        [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
+        private static partial nuint NUInt_objc_msgSend(IntPtr receiver, IntPtr selector);
+
+        [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
+        [return: MarshalAs(UnmanagedType.I1)]
+        private static partial bool Bool_objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector, IntPtr arg1);
 
         [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
         private static partial void Void_objc_msgSend(IntPtr receiver, IntPtr selector);
@@ -369,9 +470,6 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
 
         [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
         private static partial void Void_objc_msgSend_NUInt(IntPtr receiver, IntPtr selector, nuint arg1);
-
-        [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
-        private static partial void Void_objc_msgSend_IntPtr_NInt_IntPtr(IntPtr receiver, IntPtr selector, IntPtr arg1, nint arg2, IntPtr arg3);
     }
 
     [StructLayout(LayoutKind.Sequential)]

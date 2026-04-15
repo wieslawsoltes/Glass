@@ -51,6 +51,9 @@ internal sealed class WindowGlassController : IDisposable
             _window.TransparencyLevelHint = new WindowTransparencyLevelCollection(
                 new[]
                 {
+                    _settings.Material == GlassMaterial.LiquidGlass && OperatingSystem.IsMacOSVersionAtLeast(26)
+                        ? WindowTransparencyLevel.Transparent
+                        : WindowTransparencyLevel.AcrylicBlur,
                     WindowTransparencyLevel.Transparent
                 });
 

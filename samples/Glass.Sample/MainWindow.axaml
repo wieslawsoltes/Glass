@@ -10,7 +10,7 @@
         MinWidth="1180"
         MinHeight="760"
         Background="Transparent"
-        TransparencyBackgroundFallback="#0C1015"
+        TransparencyBackgroundFallback="Transparent"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="PreferSystemChrome"
         ExtendClientAreaTitleBarHeightHint="72"
@@ -24,9 +24,9 @@
         d:DesignWidth="1420"
         d:DesignHeight="920">
     <Window.Resources>
-        <SolidColorBrush x:Key="ShellStroke" Color="#52FFFFFF" />
-        <SolidColorBrush x:Key="ShellFill" Color="#1AFFFFFF" />
-        <SolidColorBrush x:Key="ShellFillStrong" Color="#26FFFFFF" />
+        <SolidColorBrush x:Key="ShellStroke" Color="#2EFFFFFF" />
+        <SolidColorBrush x:Key="ShellFill" Color="#08FFFFFF" />
+        <SolidColorBrush x:Key="ShellFillStrong" Color="#0FFFFFFF" />
         <SolidColorBrush x:Key="ShellTextSoft" Color="#A8E7EDF8" />
         <SolidColorBrush x:Key="ShellTextFaint" Color="#7DD7E0EE" />
         <SolidColorBrush x:Key="AccentBlue" Color="#98C4FF" />
@@ -61,10 +61,37 @@
             <Setter Property="BorderBrush" Value="#5AFFFFFF" />
         </Style>
 
+        <Style Selector="Button.traffic">
+            <Setter Property="Width" Value="13" />
+            <Setter Property="Height" Value="13" />
+            <Setter Property="CornerRadius" Value="999" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinWidth" Value="13" />
+            <Setter Property="MinHeight" Value="13" />
+        </Style>
+
         <Style Selector="TextBlock.eyebrow">
             <Setter Property="Foreground" Value="{StaticResource ShellTextFaint}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="TextBlock.panelHeading">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+
+        <Style Selector="ComboBox.glassInput">
+            <Setter Property="Background" Value="#16FFFFFF" />
+            <Setter Property="BorderBrush" Value="#2EFFFFFF" />
+        </Style>
+
+        <Style Selector="TextBox.glassInput">
+            <Setter Property="Background" Value="#16FFFFFF" />
+            <Setter Property="BorderBrush" Value="#2EFFFFFF" />
+            <Setter Property="Foreground" Value="White" />
         </Style>
     </Window.Styles>
 
@@ -73,7 +100,7 @@
             <Ellipse Width="540" Height="540" Canvas.Left="-90" Canvas.Top="-120">
                 <Ellipse.Fill>
                     <RadialGradientBrush RadiusX="90%" RadiusY="90%">
-                        <GradientStop Color="#75A9D4FF" Offset="0" />
+                        <GradientStop Color="#2CA9D4FF" Offset="0" />
                         <GradientStop Color="#00A9D4FF" Offset="1" />
                     </RadialGradientBrush>
                 </Ellipse.Fill>
@@ -82,7 +109,7 @@
             <Ellipse Width="620" Height="620" Canvas.Left="900" Canvas.Top="60">
                 <Ellipse.Fill>
                     <RadialGradientBrush RadiusX="90%" RadiusY="90%">
-                        <GradientStop Color="#66A8FFE5" Offset="0" />
+                        <GradientStop Color="#28A8FFE5" Offset="0" />
                         <GradientStop Color="#00A8FFE5" Offset="1" />
                     </RadialGradientBrush>
                 </Ellipse.Fill>
@@ -91,7 +118,7 @@
             <Ellipse Width="680" Height="680" Canvas.Left="420" Canvas.Top="620">
                 <Ellipse.Fill>
                     <RadialGradientBrush RadiusX="88%" RadiusY="88%">
-                        <GradientStop Color="#4DD09DFF" Offset="0" />
+                        <GradientStop Color="#18D09DFF" Offset="0" />
                         <GradientStop Color="#00D09DFF" Offset="1" />
                     </RadialGradientBrush>
                 </Ellipse.Fill>
@@ -101,14 +128,26 @@
         <Grid RowDefinitions="Auto,*" Margin="28">
             <Border Classes="surface strong"
                     Padding="22,18"
-                    Margin="0,0,0,22">
-                <Grid ColumnDefinitions="Auto,*,Auto">
-                    <StackPanel Spacing="4">
+                    Margin="0,0,0,22"
+                    PointerPressed="OnTitleBarPointerPressed">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto"
+                      ColumnSpacing="18">
+                    <StackPanel x:Name="MacTrafficLights"
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                VerticalAlignment="Center"
+                                IsVisible="False">
+                        <Button Classes="traffic" Background="#FF5F57" Click="OnCloseClick" />
+                        <Button Classes="traffic" Background="#FEBC2E" Click="OnMinimizeClick" />
+                        <Button Classes="traffic" Background="#28C840" Click="OnZoomClick" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
                         <TextBlock Classes="eyebrow" Text="Glass Runtime" />
                         <TextBlock Text="Liquid window materials for Avalonia" FontSize="24" FontWeight="SemiBold" />
                     </StackPanel>
 
-                    <StackPanel Grid.Column="2"
+                    <StackPanel Grid.Column="3"
                                 Orientation="Horizontal"
                                 Spacing="10"
                                 VerticalAlignment="Center">
@@ -251,32 +290,187 @@
                         </Border>
                     </Grid>
 
-                    <Border Grid.Row="2" Classes="surface" Padding="24">
-                        <Grid RowDefinitions="Auto,Auto,*" RowSpacing="18">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackPanel>
-                                    <TextBlock Classes="eyebrow" Text="Composition notes" />
-                                    <TextBlock Text="Platform-aware mapping" FontSize="30" FontWeight="SemiBold" />
+                    <Border Grid.Row="2" Classes="surface" Padding="0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="24" Spacing="18">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel>
+                                        <TextBlock Classes="eyebrow" Text="Runtime controls" />
+                                        <TextBlock Text="Host-native tuning" FontSize="30" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    <Border Background="#17FFFFFF" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="999" Padding="14,8" VerticalAlignment="Center">
+                                        <TextBlock Text=".NET 10" Foreground="White" FontWeight="SemiBold" />
+                                    </Border>
+                                </Grid>
+
+                                <TextBlock Foreground="{StaticResource ShellTextSoft}"
+                                           Text="Preset buttons reset the advanced overrides. The controls below let you drive the native values exposed by the current host."
+                                           TextWrapping="Wrap" />
+
+                                <StackPanel Spacing="14">
+                                    <TextBlock Classes="eyebrow" Text="Shared" />
+
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Classes="panelHeading" Text="Material preset" />
+                                        <ComboBox x:Name="MaterialComboBox"
+                                                  Classes="glassInput"
+                                                  SelectionChanged="OnMaterialSelectionChanged" />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Classes="panelHeading" Text="Corner radius" />
+                                            <TextBlock x:Name="CornerRadiusValueText"
+                                                       Foreground="{StaticResource ShellTextSoft}"
+                                                       VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Slider x:Name="CornerRadiusSlider"
+                                                Minimum="0"
+                                                Maximum="56"
+                                                ValueChanged="OnCornerRadiusChanged" />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Classes="panelHeading" Text="Tint color" />
+                                        <TextBox x:Name="TintColorTextBox"
+                                                 Classes="glassInput"
+                                                 Watermark="#AARRGGBB"
+                                                 LostFocus="OnTintColorLostFocus" />
+                                    </StackPanel>
                                 </StackPanel>
-                                <Border Background="#17FFFFFF" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="999" Padding="14,8" VerticalAlignment="Center">
-                                    <TextBlock Text=".NET 10" Foreground="White" FontWeight="SemiBold" />
-                                </Border>
-                            </Grid>
 
-                            <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="14">
-                                <Border Width="12" Height="12" CornerRadius="6" Background="{StaticResource AccentBlue}" VerticalAlignment="Top" Margin="0,8,0,0" />
-                                <TextBlock Grid.Column="1" Foreground="{StaticResource ShellTextSoft}" TextWrapping="Wrap">
-                                    Windows maps presets to `DWMWA_SYSTEMBACKDROP_TYPE` and keeps dark mode plus rounded corners aligned with the theme.
-                                </TextBlock>
-                            </Grid>
+                                <StackPanel x:Name="WindowsOptionsPanel" Spacing="14" IsVisible="False">
+                                    <TextBlock Classes="eyebrow" Text="Windows DWM" />
 
-                            <Grid Grid.Row="2" ColumnDefinitions="Auto,*" ColumnSpacing="14">
-                                <Border Width="12" Height="12" CornerRadius="6" Background="{StaticResource AccentMint}" VerticalAlignment="Top" Margin="0,8,0,0" />
-                                <TextBlock Grid.Column="1" Foreground="{StaticResource ShellTextSoft}" TextWrapping="Wrap">
-                                    macOS uses `NSVisualEffectView` today and automatically upgrades to `NSGlassEffectView` on hosts that expose the macOS 26 liquid-glass API.
-                                </TextBlock>
-                            </Grid>
-                        </Grid>
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Classes="panelHeading" Text="Backdrop kind" />
+                                        <ComboBox x:Name="WindowsBackdropComboBox"
+                                                  Classes="glassInput"
+                                                  SelectionChanged="OnWindowsBackdropSelectionChanged" />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Classes="panelHeading" Text="Host backdrop brush" />
+                                        <ComboBox x:Name="WindowsHostBackdropComboBox"
+                                                  Classes="glassInput"
+                                                  SelectionChanged="OnWindowsHostBackdropSelectionChanged" />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Classes="panelHeading" Text="Immersive dark mode" />
+                                        <ComboBox x:Name="WindowsDarkModeComboBox"
+                                                  Classes="glassInput"
+                                                  SelectionChanged="OnWindowsDarkModeSelectionChanged" />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Classes="panelHeading" Text="Corner preference" />
+                                        <ComboBox x:Name="WindowsCornerComboBox"
+                                                  Classes="glassInput"
+                                                  SelectionChanged="OnWindowsCornerSelectionChanged" />
+                                    </StackPanel>
+
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Classes="panelHeading" Text="Border color" />
+                                            <ComboBox x:Name="WindowsBorderModeComboBox"
+                                                      Classes="glassInput"
+                                                      SelectionChanged="OnWindowsBorderModeSelectionChanged" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="6">
+                                            <TextBlock Classes="panelHeading" Text="Border hex" />
+                                            <TextBox x:Name="WindowsBorderColorTextBox"
+                                                     Classes="glassInput"
+                                                     Watermark="#AARRGGBB"
+                                                     LostFocus="OnWindowsBorderColorLostFocus" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Classes="panelHeading" Text="Caption color" />
+                                            <ComboBox x:Name="WindowsCaptionModeComboBox"
+                                                      Classes="glassInput"
+                                                      SelectionChanged="OnWindowsCaptionModeSelectionChanged" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="6">
+                                            <TextBlock Classes="panelHeading" Text="Caption hex" />
+                                            <TextBox x:Name="WindowsCaptionColorTextBox"
+                                                     Classes="glassInput"
+                                                     Watermark="#AARRGGBB"
+                                                     LostFocus="OnWindowsCaptionColorLostFocus" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Classes="panelHeading" Text="Text color" />
+                                            <ComboBox x:Name="WindowsTextModeComboBox"
+                                                      Classes="glassInput"
+                                                      SelectionChanged="OnWindowsTextModeSelectionChanged" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="6">
+                                            <TextBlock Classes="panelHeading" Text="Text hex" />
+                                            <TextBox x:Name="WindowsTextColorTextBox"
+                                                     Classes="glassInput"
+                                                     Watermark="#AARRGGBB"
+                                                     LostFocus="OnWindowsTextColorLostFocus" />
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+
+                                <StackPanel x:Name="MacOptionsPanel" Spacing="14" IsVisible="False">
+                                    <TextBlock Classes="eyebrow" Text="macOS AppKit" />
+
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Classes="panelHeading" Text="Visual material" />
+                                        <ComboBox x:Name="MacMaterialComboBox"
+                                                  Classes="glassInput"
+                                                  SelectionChanged="OnMacMaterialSelectionChanged" />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Classes="panelHeading" Text="Blending mode" />
+                                        <ComboBox x:Name="MacBlendingComboBox"
+                                                  Classes="glassInput"
+                                                  SelectionChanged="OnMacBlendingSelectionChanged" />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Classes="panelHeading" Text="State" />
+                                        <ComboBox x:Name="MacStateComboBox"
+                                                  Classes="glassInput"
+                                                  SelectionChanged="OnMacStateSelectionChanged" />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Classes="panelHeading" Text="Emphasis" />
+                                        <ComboBox x:Name="MacEmphasisComboBox"
+                                                  Classes="glassInput"
+                                                  SelectionChanged="OnMacEmphasisSelectionChanged" />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Classes="panelHeading" Text="Liquid glass style" />
+                                        <ComboBox x:Name="MacGlassStyleComboBox"
+                                                  Classes="glassInput"
+                                                  SelectionChanged="OnMacGlassStyleSelectionChanged" />
+                                        <TextBlock x:Name="MacGlassStyleNoteText"
+                                                   Foreground="{StaticResource ShellTextSoft}"
+                                                   Text="This control only affects the macOS 26 `NSGlassEffectView` path when the Liquid Glass material is selected."
+                                                   TextWrapping="Wrap"
+                                                   IsVisible="False" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <TextBlock x:Name="UnsupportedOptionsText"
+                                           Foreground="{StaticResource ShellTextSoft}"
+                                           Text="Native runtime controls are available on macOS and Windows hosts."
+                                           TextWrapping="Wrap"
+                                           IsVisible="False" />
+                            </StackPanel>
+                        </ScrollViewer>
                     </Border>
                 </Grid>
             </Grid>
