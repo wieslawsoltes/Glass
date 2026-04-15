@@ -45,6 +45,18 @@ internal sealed class WindowGlassController : IDisposable
     private void ConfigureAvaloniaSurface()
     {
         _window.Background = Brushes.Transparent;
+        if (OperatingSystem.IsMacOS())
+        {
+            _window.TransparencyBackgroundFallback = Brushes.Transparent;
+            _window.TransparencyLevelHint = new WindowTransparencyLevelCollection(
+                new[]
+                {
+                    WindowTransparencyLevel.Transparent
+                });
+
+            return;
+        }
+
         _window.TransparencyBackgroundFallback = new SolidColorBrush(Color.FromArgb(0x08, 0x09, 0x0C, 0x10));
         _window.TransparencyLevelHint = new WindowTransparencyLevelCollection(
             new[]

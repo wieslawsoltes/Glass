@@ -38,7 +38,7 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
             if (_host is not { Kind: MacHostKind.LiquidWrapper })
             {
                 _host?.Dispose();
-                _host = CreateLiquidHost(nsView);
+                _host = CreateLiquidHost(nsWindow, nsView);
             }
 
             if (_host is not null)
@@ -49,10 +49,10 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
             return;
         }
 
-        if (_host is not { Kind: MacHostKind.VisualEffect })
+        if (_host is not { Kind: MacHostKind.VisualEffectWrapper })
         {
             _host?.Dispose();
-            _host = CreateVisualEffectHost(nsView);
+            _host = CreateVisualEffectHost(nsWindow, nsView);
         }
 
         if (_host is not null)
@@ -75,27 +75,55 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         ObjectiveC.SendVoidHandle(nsWindow, "setBackgroundColor:", ObjectiveC.GetClearColor());
     }
 
-    private static MacHost CreateVisualEffectHost(IntPtr nsView)
+    private static MacHost CreateVisualEffectHost(IntPtr nsWindow, IntPtr nsView)
     {
-        var parentView = ObjectiveC.SendIntPtr(nsView, "superview");
-        if (parentView == IntPtr.Zero)
+        var currentContentView = ObjectiveC.SendIntPtr(nsWindow, "contentView");
+        if (currentContentView == nsView)
         {
-            return new MacHost(MacHostKind.VisualEffect, IntPtr.Zero, nsView, parentView);
+            var contentWrapper = ObjectiveC.CreateView("NSVisualEffectView", ObjectiveC.SendRect(nsView, "frame"));
+            ObjectiveC.SendVoid(contentWrapper, "setAutoresizingMask:", SizableMask);
+            ObjectiveC.SendVoid(nsView, "removeFromSuperview");
+            ObjectiveC.SendVoidRect(nsView, "setFrame:", ObjectiveC.SendRect(contentWrapper, "bounds"));
+            ObjectiveC.SendVoidHandle(contentWrapper, "addSubview:", nsView);
+            ObjectiveC.SendVoidHandle(nsWindow, "setContentView:", contentWrapper);
+
+            return new MacHost(MacHostKind.VisualEffectWrapper, contentWrapper, nsView, IntPtr.Zero, nsWindow, true);
         }
 
-        var visualEffectView = ObjectiveC.CreateView("NSVisualEffectView", ObjectiveC.SendRect(parentView, "bounds"));
-        ObjectiveC.SendVoid(visualEffectView, "setAutoresizingMask:", SizableMask);
-        ObjectiveC.SendVoid(parentView, "addSubview:positioned:relativeTo:", visualEffectView, -1, nsView);
-
-        return new MacHost(MacHostKind.VisualEffect, visualEffectView, nsView, parentView);
-    }
-
-    private static MacHost CreateLiquidHost(IntPtr nsView)
-    {
         var parentView = ObjectiveC.SendIntPtr(nsView, "superview");
         if (parentView == IntPtr.Zero)
         {
-            return new MacHost(MacHostKind.LiquidWrapper, IntPtr.Zero, nsView, parentView);
+            return new MacHost(MacHostKind.VisualEffectWrapper, IntPtr.Zero, nsView, parentView, nsWindow, false);
+        }
+
+        var visualEffectView = ObjectiveC.CreateView("NSVisualEffectView", ObjectiveC.SendRect(nsView, "frame"));
+        ObjectiveC.SendVoid(visualEffectView, "setAutoresizingMask:", SizableMask);
+        ObjectiveC.SendVoid(nsView, "removeFromSuperview");
+        ObjectiveC.SendVoidRect(nsView, "setFrame:", ObjectiveC.SendRect(visualEffectView, "bounds"));
+        ObjectiveC.SendVoidHandle(visualEffectView, "addSubview:", nsView);
+        ObjectiveC.SendVoidHandle(parentView, "addSubview:", visualEffectView);
+
+        return new MacHost(MacHostKind.VisualEffectWrapper, visualEffectView, nsView, parentView, nsWindow, false);
+    }
+
+    private static MacHost CreateLiquidHost(IntPtr nsWindow, IntPtr nsView)
+    {
+        var currentContentView = ObjectiveC.SendIntPtr(nsWindow, "contentView");
+        if (currentContentView == nsView)
+        {
+            var contentWrapper = ObjectiveC.CreateView("NSGlassEffectView", ObjectiveC.SendRect(nsView, "frame"));
+            ObjectiveC.SendVoid(contentWrapper, "setAutoresizingMask:", SizableMask);
+            ObjectiveC.SendVoid(nsView, "removeFromSuperview");
+            ObjectiveC.SendVoidHandle(contentWrapper, "setContentView:", nsView);
+            ObjectiveC.SendVoidHandle(nsWindow, "setContentView:", contentWrapper);
+
+            return new MacHost(MacHostKind.LiquidWrapper, contentWrapper, nsView, IntPtr.Zero, nsWindow, true);
+        }
+
+        var parentView = ObjectiveC.SendIntPtr(nsView, "superview");
+        if (parentView == IntPtr.Zero)
+        {
+            return new MacHost(MacHostKind.LiquidWrapper, IntPtr.Zero, nsView, parentView, nsWindow, false);
         }
 
         var glassView = ObjectiveC.CreateView("NSGlassEffectView", ObjectiveC.SendRect(nsView, "frame"));
@@ -104,7 +132,7 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         ObjectiveC.SendVoidHandle(glassView, "setContentView:", nsView);
         ObjectiveC.SendVoidHandle(parentView, "addSubview:", glassView);
 
-        return new MacHost(MacHostKind.LiquidWrapper, glassView, nsView, parentView);
+        return new MacHost(MacHostKind.LiquidWrapper, glassView, nsView, parentView, nsWindow, false);
     }
 
     private static void UpdateVisualEffectHost(IntPtr visualEffectView, WindowGlassSettings settings)
@@ -145,12 +173,14 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
     {
         private bool _disposed;
 
-        public MacHost(MacHostKind kind, IntPtr view, IntPtr contentView, IntPtr parentView)
+        public MacHost(MacHostKind kind, IntPtr view, IntPtr contentView, IntPtr parentView, IntPtr window, bool installedAsWindowContentView)
         {
             Kind = kind;
             View = view;
             ContentView = contentView;
             ParentView = parentView;
+            Window = window;
+            InstalledAsWindowContentView = installedAsWindowContentView;
         }
 
         public MacHostKind Kind { get; }
@@ -160,6 +190,10 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         public IntPtr ContentView { get; }
 
         public IntPtr ParentView { get; }
+
+        public IntPtr Window { get; }
+
+        public bool InstalledAsWindowContentView { get; }
 
         public void Dispose()
         {
@@ -174,10 +208,24 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
                 return;
             }
 
-            if (Kind == MacHostKind.LiquidWrapper && ParentView != IntPtr.Zero && ContentView != IntPtr.Zero)
+            if (InstalledAsWindowContentView && Window != IntPtr.Zero && ContentView != IntPtr.Zero)
             {
                 ObjectiveC.SendVoid(ContentView, "removeFromSuperview");
-                ObjectiveC.SendVoidHandle(View, "setContentView:", IntPtr.Zero);
+                if (Kind == MacHostKind.LiquidWrapper)
+                {
+                    ObjectiveC.SendVoidHandle(View, "setContentView:", IntPtr.Zero);
+                }
+
+                ObjectiveC.SendVoidHandle(Window, "setContentView:", ContentView);
+            }
+            else if (ParentView != IntPtr.Zero && ContentView != IntPtr.Zero)
+            {
+                ObjectiveC.SendVoid(ContentView, "removeFromSuperview");
+                if (Kind == MacHostKind.LiquidWrapper)
+                {
+                    ObjectiveC.SendVoidHandle(View, "setContentView:", IntPtr.Zero);
+                }
+
                 ObjectiveC.SendVoidHandle(ParentView, "addSubview:", ContentView);
             }
 
@@ -188,7 +236,7 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
 
     private enum MacHostKind
     {
-        VisualEffect,
+        VisualEffectWrapper,
         LiquidWrapper
     }
 
