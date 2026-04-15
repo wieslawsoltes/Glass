@@ -8,8 +8,11 @@ namespace Glass.Avalonia;
 internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
 {
     private const nuint SizableMask = 2u | 16u;
+    private const nint OrderBelow = -1;
 
-    private MacHost? _host;
+    private MacHost? _liquidHost;
+    private IntPtr _tintOverlayView;
+    private IntPtr _tintOverlaySuperview;
 
     public void Apply(Window window, WindowGlassSettings settings)
     {
@@ -36,29 +39,33 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         var wantsLiquid = settings.Material == GlassMaterial.LiquidGlass && ObjectiveC.ClassExists("NSGlassEffectView");
         if (wantsLiquid)
         {
-            if (_host is null)
+            RemoveTintOverlay();
+
+            if (_liquidHost is null)
             {
-                _host = CreateLiquidHost(nsWindow, nsView);
+                _liquidHost = CreateLiquidHost(nsWindow, nsView);
             }
 
-            if (_host is not null)
+            if (_liquidHost is not null)
             {
-                UpdateLiquidHost(_host.View, settings);
+                UpdateLiquidHost(_liquidHost.View, settings);
             }
 
             return;
         }
 
-        _host?.Dispose();
-        _host = null;
+        _liquidHost?.Dispose();
+        _liquidHost = null;
 
         UpdateBackdropEffect(FindBackdropEffectView(nsWindow, nsView), settings);
+        EnsureTintOverlay(nsView, settings.TintColor);
     }
 
     public void Reset(Window window)
     {
-        _host?.Dispose();
-        _host = null;
+        _liquidHost?.Dispose();
+        _liquidHost = null;
+        RemoveTintOverlay();
     }
 
     private static void ConfigureWindow(IntPtr nsWindow)
@@ -83,10 +90,10 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         ObjectiveC.SendVoid(layer, "setOpaque:", false);
     }
 
-    private static IntPtr FindBackdropEffectView(IntPtr nsWindow, IntPtr nsView)
+    private static IntPtr FindBackdropEffectView(IntPtr nsWindow, IntPtr hostedView)
     {
         var contentView = ObjectiveC.SendIntPtr(nsWindow, "contentView");
-        return FindBackdropEffectSubview(contentView, nsView);
+        return FindBackdropEffectSubview(contentView, hostedView);
     }
 
     private static IntPtr FindBackdropEffectSubview(IntPtr rootView, IntPtr hostedView)
@@ -124,6 +131,43 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         }
 
         return IntPtr.Zero;
+    }
+
+    private void EnsureTintOverlay(IntPtr hostedView, Color tintColor)
+    {
+        var parentView = ObjectiveC.SendIntPtr(hostedView, "superview");
+        if (parentView == IntPtr.Zero)
+        {
+            RemoveTintOverlay();
+            return;
+        }
+
+        if (_tintOverlayView == IntPtr.Zero || _tintOverlaySuperview != parentView)
+        {
+            RemoveTintOverlay();
+
+            _tintOverlayView = ObjectiveC.CreateView("NSView", ObjectiveC.SendRect(hostedView, "frame"));
+            _tintOverlaySuperview = parentView;
+
+            ObjectiveC.SendVoid(_tintOverlayView, "setAutoresizingMask:", SizableMask);
+            ConfigureTintView(_tintOverlayView, Colors.Transparent);
+            ObjectiveC.SendVoidRect(_tintOverlayView, "setFrame:", ObjectiveC.SendRect(parentView, "bounds"));
+            ObjectiveC.SendVoid(parentView, "addSubview:positioned:relativeTo:", _tintOverlayView, OrderBelow, hostedView);
+        }
+
+        ConfigureTintView(_tintOverlayView, tintColor);
+        ObjectiveC.SendVoidRect(_tintOverlayView, "setFrame:", ObjectiveC.SendRect(parentView, "bounds"));
+    }
+
+    private void RemoveTintOverlay()
+    {
+        if (_tintOverlayView != IntPtr.Zero)
+        {
+            ObjectiveC.SendVoid(_tintOverlayView, "removeFromSuperview");
+            ObjectiveC.Release(_tintOverlayView);
+            _tintOverlayView = IntPtr.Zero;
+            _tintOverlaySuperview = IntPtr.Zero;
+        }
     }
 
     private static void UpdateBackdropEffect(IntPtr visualEffectView, WindowGlassSettings settings)
@@ -210,8 +254,8 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
             GlassMaterial.Acrylic or GlassMaterial.Blur => 5,
             GlassMaterial.Mica => 10,
             GlassMaterial.MicaAlt => 7,
-            GlassMaterial.LiquidGlass => 6,
-            _ => 6
+            GlassMaterial.LiquidGlass => 21,
+            _ => 21
         };
 
     private static nint ResolveBlendingMode(WindowGlassSettings settings) =>
@@ -253,6 +297,24 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         ObjectiveC.SendVoid(layer, "setOpaque:", false);
         ObjectiveC.SendVoid(layer, "setCornerRadius:", cornerRadius);
         ObjectiveC.SendVoid(layer, "setMasksToBounds:", false);
+    }
+
+    private static void ConfigureTintView(IntPtr view, Color color)
+    {
+        if (view == IntPtr.Zero)
+        {
+            return;
+        }
+
+        ObjectiveC.SendVoid(view, "setWantsLayer:", true);
+        var layer = ObjectiveC.SendIntPtr(view, "layer");
+        if (layer == IntPtr.Zero)
+        {
+            return;
+        }
+
+        ObjectiveC.SendVoidHandle(layer, "setBackgroundColor:", ObjectiveC.CreateCgColor(color));
+        ObjectiveC.SendVoid(layer, "setOpaque:", false);
     }
 
     private sealed class MacHost : IDisposable
@@ -338,17 +400,17 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
                 color.A / 255d);
         }
 
+        public static IntPtr CreateCgColor(Color color) => GetCgColor(CreateColor(color));
+
         public static IntPtr GetClearColor()
         {
             var colorClass = LookupClass("NSColor");
             return SendIntPtr(colorClass, "clearColor");
         }
 
-        public static IntPtr GetClearCgColor()
-        {
-            var clearColor = GetClearColor();
-            return SendIntPtr(clearColor, "CGColor");
-        }
+        public static IntPtr GetClearCgColor() => GetCgColor(GetClearColor());
+
+        public static IntPtr GetCgColor(IntPtr nsColor) => SendIntPtr(nsColor, "CGColor");
 
         public static bool IsKindOfClass(IntPtr receiver, string className)
         {
@@ -398,6 +460,9 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
         public static void SendVoidInteger(IntPtr receiver, string selector, nint arg1) => Void_objc_msgSend_NInt(receiver, GetSelector(selector), arg1);
 
         public static void SendVoid(IntPtr receiver, string selector, nuint arg1) => Void_objc_msgSend_NUInt(receiver, GetSelector(selector), arg1);
+
+        public static void SendVoid(IntPtr receiver, string selector, IntPtr arg1, nint arg2, IntPtr arg3) =>
+            Void_objc_msgSend_IntPtr_NInt_IntPtr(receiver, GetSelector(selector), arg1, arg2, arg3);
 
         private static IntPtr GetSelector(string selector)
         {
@@ -470,6 +535,9 @@ internal sealed partial class MacWindowGlassBackend : IWindowGlassBackend
 
         [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
         private static partial void Void_objc_msgSend_NUInt(IntPtr receiver, IntPtr selector, nuint arg1);
+
+        [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
+        private static partial void Void_objc_msgSend_IntPtr_NInt_IntPtr(IntPtr receiver, IntPtr selector, IntPtr arg1, nint arg2, IntPtr arg3);
     }
 
     [StructLayout(LayoutKind.Sequential)]
